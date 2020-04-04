@@ -1,0 +1,175 @@
+# see https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#serviceaccount-v1-core
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kubernetes-hello
+imagePullSecrets:
+  - name: pandora-rancher-test-5000
+---
+# see https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#role-v1-rbac-authorization-k8s-io
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-read
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+# see https://kubernetes.io/docs/reference/access-authn-authz/rbac/
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#rolebinding-v1-rbac-authorization-k8s-io
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: kubernetes-hello-pod-read
+subjects:
+  - kind: ServiceAccount
+    name: kubernetes-hello
+roleRef:
+  kind: Role
+  name: pod-read
+  apiGroup: rbac.authorization.k8s.io
+---
+# see https://kubernetes.io/docs/concepts/services-networking/ingress/
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.15/#ingress-v1beta1-networking-k8s-io
+apiVersion: networking.k8s.io/v1beta1
+kind: Ingress
+metadata:
+  name: kubernetes-hello
+spec:
+  rules:
+    # NB due to the external-dns controller this will automatically configure the external DNS server (installed
+    #    in the pandora box) based on this ingress rule.
+    #    see https://github.com/kubernetes-incubator/external-dns
+    # NB you can use any other host, but you have to make sure DNS resolves to one of k8s cluster IP addresses.
+    # NB you could also use xip.io to make rancher automatically generate a host alike kubernetes-hello.default.10.1.0.3.xip.io.
+    # NB you can see the configured server names on the nginx ingress with:
+    #       kubectl --namespace ingress-nginx exec $(kubectl --namespace ingress-nginx get pods -l app=ingress-nginx -o name) cat /etc/nginx/nginx.conf | grep 'server_name '
+    - host: kubernetes-hello.rancher.test
+      http:
+        paths:
+          - backend:
+              serviceName: kubernetes-hello
+              servicePort: http
+---
+# see https://kubernetes.io/docs/concepts/services-networking/service/
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#service-v1-core
+# see https://github.com/kubernetes-incubator/external-dns/blob/v0.5.16/docs/initial-design.md
+# see https://github.com/kubernetes-incubator/external-dns/blob/v0.5.16/docs/ttl.md
+apiVersion: v1
+kind: Service
+metadata:
+  name: kubernetes-hello
+  annotations:
+    external-dns.alpha.kubernetes.io/hostname: kubernetes-hello-lb.rancher.test
+    external-dns.alpha.kubernetes.io/ttl: "120"
+spec:
+  selector:
+    app: kubernetes-hello
+  type: LoadBalancer
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http
+---
+# see https://kubernetes.io/docs/concepts/configuration/secret/
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#secret-v1-core
+apiVersion: v1
+kind: Secret
+type: Opaque
+metadata:
+  name: kubernetes-hello-secrets
+stringData:
+  username: ali.baba
+  password: Open Sesame
+---
+# see https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#configmap-v1-core
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kubernetes-hello-configs
+data:
+  config-a.toml: |
+    # a comment
+    [table1]
+    name = "config-a"
+
+    [table2]
+    key = "string value"
+  config-b.toml: |
+    # a comment
+    [table1]
+    name = "config-b"
+
+    [table2]
+    key = "string value"
+---
+# see https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
+# see https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#daemonset-v1-apps
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#podtemplatespec-v1-core
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.17/#container-v1-core
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: kubernetes-hello
+spec:
+  selector:
+    matchLabels:
+      app: kubernetes-hello
+  template:
+    metadata:
+      labels:
+        app: kubernetes-hello
+    spec:
+      serviceAccountName: kubernetes-hello
+      nodeSelector:
+        kubernetes.io/arch: amd64
+        kubernetes.io/os: linux
+      containers:
+        - name: kubernetes-hello
+          image: ruilopes/kubernetes-hello
+          ports:
+            - name: http
+              containerPort: 8000
+          resources:
+            requests:
+              memory: 20Mi
+              cpu: 0.1
+            limits:
+              memory: 20Mi
+              cpu: 0.1
+          env:
+            # see https://github.com/kubernetes/kubernetes/blob/master/test/e2e/common/downward_api.go
+            - name: POD_UID
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.uid
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          volumeMounts:
+            - name: secrets
+              readOnly: true
+              mountPath: /var/run/secrets/example
+            - name: configs
+              readOnly: true
+              mountPath: /var/run/configs/example
+      volumes:
+        - name: secrets
+          secret:
+            secretName: kubernetes-hello-secrets
+            defaultMode: 0400
+        - name: configs
+          configMap:
+            name: kubernetes-hello-configs
+            defaultMode: 0400
