@@ -1,10 +1,10 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -31,8 +31,8 @@ func init() {
 	startTime = time.Now()
 }
 
-// see https://github.com/kubernetes/client-go/tree/v0.17.0/examples/in-cluster-client-configuration
-// see https://github.com/kubernetes/client-go/blob/v0.17.0/kubernetes/typed/core/v1/pod.go
+// see https://github.com/kubernetes/client-go/tree/v0.25.2/examples/in-cluster-client-configuration
+// see https://github.com/kubernetes/client-go/blob/v0.25.2/kubernetes/typed/core/v1/pod.go
 func getPodContainers() (string, error) {
 	podNamespace := os.Getenv("POD_NAMESPACE")
 	podName := os.Getenv("POD_NAME")
@@ -44,7 +44,7 @@ func getPodContainers() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	pod, err := client.CoreV1().Pods(podNamespace).Get(podName, metav1.GetOptions{})
+	pod, err := client.CoreV1().Pods(podNamespace).Get(context.TODO(), podName, metav1.GetOptions{})
 	if err != nil {
 		return "", err
 	}
@@ -248,7 +248,7 @@ func main() {
 			uid := fi.Sys().(*syscall.Stat_t).Uid
 			gid := fi.Sys().(*syscall.Stat_t).Gid
 			name := v[len("/var/run/secrets/"):]
-			value, _ := ioutil.ReadFile(v)
+			value, _ := os.ReadFile(v)
 			secrets = append(secrets, nameValuePair{fmt.Sprintf("%s %d %d %s", mode, uid, gid, name), string(value)})
 		}
 		sort.Sort(nameValuePairs(secrets))
@@ -270,22 +270,22 @@ func main() {
 			uid := fi.Sys().(*syscall.Stat_t).Uid
 			gid := fi.Sys().(*syscall.Stat_t).Gid
 			name := v[len("/var/run/configs/"):]
-			value, _ := ioutil.ReadFile(v)
+			value, _ := os.ReadFile(v)
 			configs = append(configs, nameValuePair{fmt.Sprintf("%s %d %d %s", mode, uid, gid, name), string(value)})
 		}
 		sort.Sort(nameValuePairs(configs))
 
-		cgroup, err := ioutil.ReadFile("/proc/self/cgroup")
+		cgroup, err := os.ReadFile("/proc/self/cgroup")
 		if err != nil {
 			panic(err)
 		}
 
-		memoryLimit, err := ioutil.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+		memoryLimit, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
 		if err != nil {
 			panic(err)
 		}
 
-		memoryUsage, err := ioutil.ReadFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+		memoryUsage, err := os.ReadFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
 		if err != nil {
 			panic(err)
 		}
