@@ -3,6 +3,8 @@ package main
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"html/template"
@@ -25,6 +27,7 @@ import (
 )
 
 var sniffCertificatePEM *regexp.Regexp = regexp.MustCompile(`-----BEGIN CERTIFICATE-----`)
+var sniffJWT *regexp.Regexp = regexp.MustCompile(`([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)\.[A-Za-z0-9_-]+\s*`) // base64 url encoded.
 
 var startTime time.Time
 
@@ -70,6 +73,29 @@ func getCertificateText(pem []byte) (string, error) {
 	return string(output), nil
 }
 
+func getJWTText(encodedHeader []byte, encodedPayload []byte) (string, error) {
+	header, err := base64.RawURLEncoding.DecodeString(string(encodedHeader))
+	if err != nil {
+		return "", fmt.Errorf("failed to decode encodedHeader: %v", err)
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(string(encodedPayload))
+	if err != nil {
+		return "", fmt.Errorf("failed to decode encodedPayload: %v", err)
+	}
+	return fmt.Sprintf(
+		"header: %s\n\npayload: %s",
+		getPrettyJSON(header),
+		getPrettyJSON(payload)), nil
+}
+
+func getPrettyJSON(jsonString []byte) string {
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, jsonString, "", "  "); err != nil {
+		return string(jsonString)
+	}
+	return prettyJSON.String()
+}
+
 func getFileText(path string) string {
 	value, _ := os.ReadFile(path)
 
@@ -80,6 +106,16 @@ func getFileText(path string) string {
 		}
 		return info
 	}
+
+	jwtMatches := sniffJWT.FindSubmatch(value)
+	if jwtMatches != nil {
+		info, err := getJWTText(jwtMatches[1], jwtMatches[2])
+		if err != nil {
+			info = fmt.Sprintf("ERROR %v", err)
+		}
+		return fmt.Sprintf("%s\n\n%s", info, value)
+	}
+
 	return string(value)
 }
 
