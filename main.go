@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/exec"
+	"regexp"
 	"runtime"
 	"sort"
 	"strings"
@@ -20,6 +23,8 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 )
+
+var sniffCertificatePEM *regexp.Regexp = regexp.MustCompile(`-----BEGIN CERTIFICATE-----`)
 
 var startTime time.Time
 
@@ -53,6 +58,29 @@ func getPodContainers() (string, error) {
 		fmt.Fprintf(&b, "%s %s\n", container.Name, container.Image)
 	}
 	return b.String(), nil
+}
+
+func getCertificateText(pem []byte) (string, error) {
+	cmd := exec.Command("openssl", "x509", "-text")
+	cmd.Stdin = bytes.NewReader(pem)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	return string(output), nil
+}
+
+func getFileText(path string) string {
+	value, _ := os.ReadFile(path)
+
+	if sniffCertificatePEM.Find(value) != nil {
+		info, err := getCertificateText(value)
+		if err != nil {
+			info = fmt.Sprintf("ERROR %v", err)
+		}
+		return info
+	}
+	return string(value)
 }
 
 var indexTemplate = template.Must(template.New("Index").Parse(`<!DOCTYPE html>
@@ -248,8 +276,8 @@ func main() {
 			uid := fi.Sys().(*syscall.Stat_t).Uid
 			gid := fi.Sys().(*syscall.Stat_t).Gid
 			name := v[len("/var/run/secrets/"):]
-			value, _ := os.ReadFile(v)
-			secrets = append(secrets, nameValuePair{fmt.Sprintf("%s %d %d %s", mode, uid, gid, name), string(value)})
+			value := getFileText(v)
+			secrets = append(secrets, nameValuePair{fmt.Sprintf("%s %d %d %s", mode, uid, gid, name), value})
 		}
 		sort.Sort(nameValuePairs(secrets))
 
@@ -270,8 +298,8 @@ func main() {
 			uid := fi.Sys().(*syscall.Stat_t).Uid
 			gid := fi.Sys().(*syscall.Stat_t).Gid
 			name := v[len("/var/run/configs/"):]
-			value, _ := os.ReadFile(v)
-			configs = append(configs, nameValuePair{fmt.Sprintf("%s %d %d %s", mode, uid, gid, name), string(value)})
+			value := getFileText(v)
+			configs = append(configs, nameValuePair{fmt.Sprintf("%s %d %d %s", mode, uid, gid, name), value})
 		}
 		sort.Sort(nameValuePairs(configs))
 
