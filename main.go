@@ -280,14 +280,30 @@ func main() {
 			panic(err)
 		}
 
-		memoryLimit, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
-		if err != nil {
-			panic(err)
-		}
+		var memoryLimit []byte
+		var memoryUsage []byte
 
-		memoryUsage, err := os.ReadFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
-		if err != nil {
-			panic(err)
+		// cgroup v1.
+		if _, err := os.Stat("/sys/fs/cgroup/memory/memory.limit_in_bytes"); err == nil {
+			memoryLimit, err = os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+			if err != nil {
+				panic(err)
+			}
+
+			memoryUsage, err = os.ReadFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+			if err != nil {
+				panic(err)
+			}
+		} else { // cgroup v2.
+			memoryLimit, err = os.ReadFile("/sys/fs/cgroup/memory.max")
+			if err != nil {
+				panic(err)
+			}
+
+			memoryUsage, err = os.ReadFile("/sys/fs/cgroup/memory.current")
+			if err != nil {
+				panic(err)
+			}
 		}
 
 		podContainers, err := getPodContainers()
