@@ -131,6 +131,7 @@ spec:
         app: kubernetes-hello
     spec:
       serviceAccountName: kubernetes-hello
+      enableServiceLinks: false
       nodeSelector:
         kubernetes.io/arch: amd64
         kubernetes.io/os: linux
