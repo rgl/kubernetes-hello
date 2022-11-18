@@ -212,6 +212,19 @@ table > tbody > tr:hover {
             {{- end}}
         </tbody>
     </table>
+    {{- if .AzureDNSZones}}
+    <table>
+        <caption>Azure DNS Zones</caption>
+        <tbody>
+            {{- range .AzureDNSZones}}
+            <tr>
+                <th>{{.Name}}</th>
+                <td>{{.Value}}</td>
+            </tr>
+            {{- end}}
+        </tbody>
+    </table>
+    {{- end}}
 </body>
 </html>
 `))
@@ -240,6 +253,7 @@ type indexData struct {
 	Environment   []nameValuePair
 	Secrets       []nameValuePair
 	Configs       []nameValuePair
+	AzureDNSZones []nameValuePair
 }
 
 type nameValuePairs []nameValuePair
@@ -375,6 +389,8 @@ func main() {
 			panic(err)
 		}
 
+		azureDNSZones := getAzureDNSZones()
+
 		err = indexTemplate.ExecuteTemplate(w, "Index", indexData{
 			Pid:           os.Getpid(),
 			Uid:           os.Getuid(),
@@ -394,6 +410,7 @@ func main() {
 			Environment:   environment,
 			Secrets:       secrets,
 			Configs:       configs,
+			AzureDNSZones: azureDNSZones,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
