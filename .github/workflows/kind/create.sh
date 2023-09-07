@@ -17,13 +17,13 @@ docker run \
     --name "$CLUSTER_NAME-registry" \
     --env REGISTRY_HTTP_ADDR=0.0.0.0:5001 \
     -p 5001:5001 \
-    registry:2.8.1 \
+    registry:2.8.2 \
     >/dev/null
 while ! wget -q --spider http://localhost:5001/v2; do sleep 1; done;
 
 echo 'Connecting the docker registry to the kind k8s network...'
 # TODO isolate the network from other kind clusters with KIND_EXPERIMENTAL_DOCKER_NETWORK.
-#      see https://github.com/kubernetes-sigs/kind/blob/v0.18.0/pkg/cluster/internal/providers/docker/network.go
+#      see https://github.com/kubernetes-sigs/kind/blob/v0.20.0/pkg/cluster/internal/providers/docker/network.go
 docker network connect \
     kind \
     "$CLUSTER_NAME-registry"

@@ -39,8 +39,8 @@ func init() {
 	startTime = time.Now()
 }
 
-// see https://github.com/kubernetes/client-go/tree/v0.27.1/examples/in-cluster-client-configuration
-// see https://github.com/kubernetes/client-go/blob/v0.27.1/kubernetes/typed/core/v1/pod.go
+// see https://github.com/kubernetes/client-go/tree/v0.28.1/examples/in-cluster-client-configuration
+// see https://github.com/kubernetes/client-go/blob/v0.28.1/kubernetes/typed/core/v1/pod.go
 func getPodContainers() (string, error) {
 	podNamespace := os.Getenv("POD_NAMESPACE")
 	podName := os.Getenv("POD_NAME")
