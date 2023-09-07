@@ -1,6 +1,6 @@
 # About
 
-[![Build status](https://img.shields.io/github/workflow/status/rgl/kubernetes-hello/main)](https://github.com/rgl/kubernetes-hello/actions?query=workflow%3Amain)
+[![Build status](https://img.shields.io/github/actions/workflow/status/rgl/kubernetes-hello/main.yml?branch=master)](https://github.com/rgl/kubernetes-hello/actions/workflows/main.yml)
 [![Docker pulls](https://img.shields.io/docker/pulls/ruilopes/kubernetes-hello)](https://hub.docker.com/repository/docker/ruilopes/kubernetes-hello)
 
 Container that shows details about the environment its running on.
