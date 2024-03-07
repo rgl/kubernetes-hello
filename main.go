@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"html/template"
 	"log"
+	"log/slog"
 	"net"
 	"net/http"
 	"os"
@@ -290,8 +291,18 @@ func (a nameValuePairs) Len() int           { return len(a) }
 func (a nameValuePairs) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a nameValuePairs) Less(i, j int) bool { return a[i].Name < a[j].Name }
 
+func logRequest(handler http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		slog.Info("begin handling request", "method", r.Method, "host", r.Host, "url", r.URL)
+		handler.ServeHTTP(w, r)
+		slog.Info("end handling request", "method", r.Method, "host", r.Host, "url", r.URL)
+	}
+}
+
 func main() {
-	log.SetFlags(0)
+	logger := slog.New(slog.NewTextHandler(os.Stdout, nil))
+
+	slog.SetDefault(logger)
 
 	var listenAddress = flag.String("listen", ":8000", "Listen address.")
 
@@ -302,9 +313,7 @@ func main() {
 		log.Fatalf("\nERROR You MUST NOT pass any positional arguments")
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		fmt.Printf("%s %s%s\n", r.Method, r.Host, r.URL)
-
+	http.HandleFunc("/", logRequest(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/" {
 			http.Error(w, "Not Found", http.StatusNotFound)
 			return
@@ -403,9 +412,9 @@ func main() {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-	})
+	}))
 
-	fmt.Printf("Listening at http://%s\n", *listenAddress)
+	slog.Info("listening", "addr", fmt.Sprintf("http://%s", *listenAddress))
 
 	err := http.ListenAndServe(*listenAddress, nil)
 	if err != nil {
