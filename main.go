@@ -97,7 +97,10 @@ func getPrettyJSON(jsonString []byte) string {
 }
 
 func getFileText(path string) string {
-	value, _ := os.ReadFile(path)
+	value, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Sprintf("ERROR %v", err)
+	}
 
 	if sniffCertificatePEM.Find(value) != nil {
 		info, err := getCertificateText(value)
