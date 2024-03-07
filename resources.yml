@@ -124,6 +124,7 @@ data:
     eyJhbGciOiJSUzI1NiIsImtpZCI6Il8ybnI0NTI1UzVBclAwS05YQ0xySDZwMG4zYXVDX0RZcVBJdU8zN2gzTkEiLCJ0eXAiOiJKV1QifQ.eyJuYW1lc3BhY2VfaWQiOiIxMCIsIm5hbWVzcGFjZV9wYXRoIjoiZXhhbXBsZSIsInByb2plY3RfaWQiOiI3IiwicHJvamVjdF9wYXRoIjoiZXhhbXBsZS9naXRsYWItY2ktdmFsaWRhdGUtand0IiwidXNlcl9pZCI6IjEiLCJ1c2VyX2xvZ2luIjoicm9vdCIsInVzZXJfZW1haWwiOiJhZG1pbkBleGFtcGxlLmNvbSIsInBpcGVsaW5lX2lkIjoiMTIiLCJqb2JfaWQiOiIyMyIsInJlZiI6Im1hc3RlciIsInJlZl90eXBlIjoiYnJhbmNoIiwicmVmX3Byb3RlY3RlZCI6InRydWUiLCJqdGkiOiJlY2I3YjJhOS02ZTljLTQ4NmUtYmYxNC1mNjIyOTgyOTMwODAiLCJpc3MiOiJnaXRsYWIuZXhhbXBsZS5jb20iLCJpYXQiOjE2MDA1OTExMjgsIm5iZiI6MTYwMDU5MTEyMywiZXhwIjoxNjAwNTk0NzI4LCJzdWIiOiJqb2JfMjMifQ.O_5PjdarFNJQ1u8Xh17BoWdsrxHtmeKu8_GJHJVuFRG3PE66hDTC0cOrqCP4iGp5InygIp26DE-C-fJ1QzgAiCkROQY83vLCq3_aTDVozCpuKdvifg7rxM5kd9ZmccmLnRrSnMPFF3LZPxvwn8A50ajJJOEbdD1Cud_lJd5ViVYZRPaATy44gPTFC72yqBIFwsrl5cB5Tlir_iMQyY4iMNYj-OWHG--hMVovUVVr9lFmhU8CmcaWjEd7C9gngp7hQ-BqMTWqhnCUUcipy7hNeHEACTrYjARuJEKAUMQf_23p1WO_ELHBNGrKSrKDFWtY_VOuGi7nmNVXU-Af0HCPzeYcoDwX1ex6E8ucrH5cgwj0exOIknBrcROWrxd6OFGQLo7V0hwRJ5P6auZJr5lG_hc0n2Ijc-sr266LRBzgwrqcVD9pcgfr6hW1wuyt9fyuNDvnXSkNQFT4v_CjhByUHm13CNRm7WW2urVUSL_suKR5yjV1k1AAzHo3-x1SeH4e9J8RkWiAtRGkU3imPtaADR3FpHCSzkncp-DC4iRTtGIKVLLuaLNZqKQWtfbTT8bfP0PxV109sb404t7U_gXZ5cqgi8Jam0FoYUyO_qEuBwwQdyHsj1YvYFCBLIFz3Zcu7gfUgEjGHCcFyrr9SArlj5YUWMmnbns77B0mwvl0Y4M
 ---
 # see https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
+# see https://kubernetes.io/docs/concepts/storage/projected-volumes/#serviceaccounttoken
 # see https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 # see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#daemonset-v1-apps
 # see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podtemplatespec-v1-core
@@ -174,6 +175,9 @@ spec:
                 fieldRef:
                   fieldPath: metadata.namespace
           volumeMounts:
+            - name: tokens
+              readOnly: true
+              mountPath: /var/run/secrets/tokens
             - name: secrets
               readOnly: true
               mountPath: /var/run/secrets/example
@@ -181,6 +185,23 @@ spec:
               readOnly: true
               mountPath: /var/run/configs/example
       volumes:
+        - name: tokens
+          projected:
+            sources:
+              - serviceAccountToken:
+                  path: example.com-jwt.txt
+                  audience: example.com
+                  # NB the kubelet will periodically rotate this token.
+                  # NB the token is rotated when its older than 80% of its time
+                  #    to live or if the token is older than 24h.
+                  # NB in production, set to a higher value (e.g. 3600 (1h)).
+                  # NB the minimum allowed value is 600 (10m).
+                  # NB this is equivalent of using the TokenRequest API.
+                  #    see https://kubernetes.io/docs/reference/kubernetes-api/authentication-resources/token-request-v1/
+                  # NB this is equivalent of executing:
+                  #       kubectl create token kubernetes-hello --audience example.com --duration 600s
+                  #    see https://kubernetes.io/docs/reference/kubectl/generated/kubectl_create/kubectl_create_token/
+                  expirationSeconds: 600
         - name: secrets
           secret:
             secretName: kubernetes-hello-secrets
