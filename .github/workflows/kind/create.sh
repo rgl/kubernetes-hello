@@ -6,8 +6,7 @@ echo "Creating $CLUSTER_NAME k8s..."
 kind create cluster \
     --name="$CLUSTER_NAME" \
     --config="$SCRIPT_PATH/config.yml"
-kubectl cluster-info \
-    --context "kind-$CLUSTER_NAME"
+kubectl cluster-info
 
 echo 'Creating the docker registry...'
 # TODO create the registry inside the k8s cluster.
