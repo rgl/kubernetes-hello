@@ -122,6 +122,31 @@ func getFileText(path string) string {
 	return string(value)
 }
 
+func getFilesText(parentDirectoryPath string) []nameValuePair {
+	filesText := make([]nameValuePair, 0)
+	filesPath, _ := doublestar.Glob(fmt.Sprintf("%s/**", parentDirectoryPath))
+	for _, v := range filesPath {
+		if strings.Contains(v, "/.") {
+			continue
+		}
+		fi, err := os.Stat(v)
+		if err != nil {
+			log.Fatal(err)
+		}
+		mode := fi.Mode()
+		if !mode.IsRegular() {
+			continue
+		}
+		uid := fi.Sys().(*syscall.Stat_t).Uid
+		gid := fi.Sys().(*syscall.Stat_t).Gid
+		name := v[len(parentDirectoryPath)+1:]
+		value := getFileText(v)
+		filesText = append(filesText, nameValuePair{fmt.Sprintf("%s %d %d %s", mode, uid, gid, name), value})
+	}
+	sort.Sort(nameValuePairs(filesText))
+	return filesText
+}
+
 var indexTemplate = template.Must(template.New("Index").Parse(`<!DOCTYPE html>
 <html>
 <head>
@@ -312,49 +337,8 @@ func main() {
 		}
 		sort.Sort(nameValuePairs(environment))
 
-		secrets := make([]nameValuePair, 0)
-		secretFiles, _ := doublestar.Glob("/var/run/secrets/**")
-		for _, v := range secretFiles {
-			if strings.Contains(v, "/.") {
-				continue
-			}
-			fi, err := os.Stat(v)
-			if err != nil {
-				log.Fatal(err)
-			}
-			mode := fi.Mode()
-			if !mode.IsRegular() {
-				continue
-			}
-			uid := fi.Sys().(*syscall.Stat_t).Uid
-			gid := fi.Sys().(*syscall.Stat_t).Gid
-			name := v[len("/var/run/secrets/"):]
-			value := getFileText(v)
-			secrets = append(secrets, nameValuePair{fmt.Sprintf("%s %d %d %s", mode, uid, gid, name), value})
-		}
-		sort.Sort(nameValuePairs(secrets))
-
-		configs := make([]nameValuePair, 0)
-		configFiles, _ := doublestar.Glob("/var/run/configs/**")
-		for _, v := range configFiles {
-			if strings.Contains(v, "/.") {
-				continue
-			}
-			fi, err := os.Stat(v)
-			if err != nil {
-				log.Fatal(err)
-			}
-			mode := fi.Mode()
-			if !mode.IsRegular() {
-				continue
-			}
-			uid := fi.Sys().(*syscall.Stat_t).Uid
-			gid := fi.Sys().(*syscall.Stat_t).Gid
-			name := v[len("/var/run/configs/"):]
-			value := getFileText(v)
-			configs = append(configs, nameValuePair{fmt.Sprintf("%s %d %d %s", mode, uid, gid, name), value})
-		}
-		sort.Sort(nameValuePairs(configs))
+		secrets := getFilesText("/var/run/secrets")
+		configs := getFilesText("/var/run/configs")
 
 		cgroup, err := os.ReadFile("/proc/self/cgroup")
 		if err != nil {
