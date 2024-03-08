@@ -129,6 +129,7 @@ data:
 # see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#daemonset-v1-apps
 # see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#podtemplatespec-v1-core
 # see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#container-v1-core
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.29/#serviceaccounttokenprojection-v1-core
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
