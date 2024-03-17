@@ -209,6 +209,17 @@ table > tbody > tr:hover {
         </tbody>
     </table>
     <table>
+        <caption>Request Headers</caption>
+        <tbody>
+            {{- range .RequestHeaders}}
+            <tr>
+                <th>{{.Name}}</th>
+                <td>{{.Value}}</td>
+            </tr>
+            {{- end}}
+        </tbody>
+    </table>
+    <table>
         <caption>Environment Variables</caption>
         <tbody>
             {{- range .Environment}}
@@ -264,25 +275,26 @@ type nameValuePair struct {
 }
 
 type indexData struct {
-	Pid           int
-	Uid           int
-	Gid           int
-	PodContainers string
-	Cgroup        string
-	MemoryLimit   string
-	MemoryUsage   string
-	Request       string
-	ClientAddress string
-	ServerAddress string
-	Hostname      string
-	Os            string
-	Architecture  string
-	Runtime       string
-	Uptime        string
-	Environment   []nameValuePair
-	Secrets       []nameValuePair
-	Configs       []nameValuePair
-	AzureDNSZones []nameValuePair
+	Pid            int
+	Uid            int
+	Gid            int
+	PodContainers  string
+	Cgroup         string
+	MemoryLimit    string
+	MemoryUsage    string
+	Request        string
+	RequestHeaders []nameValuePair
+	ClientAddress  string
+	ServerAddress  string
+	Hostname       string
+	Os             string
+	Architecture   string
+	Runtime        string
+	Uptime         string
+	Environment    []nameValuePair
+	Secrets        []nameValuePair
+	Configs        []nameValuePair
+	AzureDNSZones  []nameValuePair
 }
 
 type nameValuePairs []nameValuePair
@@ -297,6 +309,17 @@ func logRequest(handler http.HandlerFunc) http.HandlerFunc {
 		handler.ServeHTTP(w, r)
 		slog.Info("end handling request", "method", r.Method, "host", r.Host, "url", r.URL)
 	}
+}
+
+func headersToNameValuePairs(headers http.Header) nameValuePairs {
+	var pairs nameValuePairs
+	for name, values := range headers {
+		for _, value := range values {
+			pairs = append(pairs, nameValuePair{name, value})
+		}
+	}
+	sort.Sort(nameValuePairs(pairs))
+	return pairs
 }
 
 func main() {
@@ -380,6 +403,8 @@ func main() {
 			}
 		}
 
+		requestHeaders := headersToNameValuePairs(r.Header)
+
 		podContainers, err := getPodContainers()
 		if err != nil {
 			panic(err)
@@ -388,25 +413,26 @@ func main() {
 		azureDNSZones := getAzureDNSZones()
 
 		err = indexTemplate.ExecuteTemplate(w, "Index", indexData{
-			Pid:           os.Getpid(),
-			Uid:           os.Getuid(),
-			Gid:           os.Getgid(),
-			PodContainers: podContainers,
-			Cgroup:        string(cgroup),
-			MemoryLimit:   string(memoryLimit),
-			MemoryUsage:   string(memoryUsage),
-			Request:       fmt.Sprintf("%s %s%s", r.Method, r.Host, r.URL),
-			ClientAddress: r.RemoteAddr,
-			ServerAddress: r.Context().Value(http.LocalAddrContextKey).(net.Addr).String(),
-			Hostname:      hostname,
-			Os:            runtime.GOOS,
-			Architecture:  runtime.GOARCH,
-			Runtime:       runtime.Version(),
-			Uptime:        uptime().String(),
-			Environment:   environment,
-			Secrets:       secrets,
-			Configs:       configs,
-			AzureDNSZones: azureDNSZones,
+			Pid:            os.Getpid(),
+			Uid:            os.Getuid(),
+			Gid:            os.Getgid(),
+			PodContainers:  podContainers,
+			Cgroup:         string(cgroup),
+			MemoryLimit:    string(memoryLimit),
+			MemoryUsage:    string(memoryUsage),
+			Request:        fmt.Sprintf("%s %s%s", r.Method, r.Host, r.URL),
+			RequestHeaders: requestHeaders,
+			ClientAddress:  r.RemoteAddr,
+			ServerAddress:  r.Context().Value(http.LocalAddrContextKey).(net.Addr).String(),
+			Hostname:       hostname,
+			Os:             runtime.GOOS,
+			Architecture:   runtime.GOARCH,
+			Runtime:        runtime.Version(),
+			Uptime:         uptime().String(),
+			Environment:    environment,
+			Secrets:        secrets,
+			Configs:        configs,
+			AzureDNSZones:  azureDNSZones,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -7,12 +7,14 @@ Container that shows details about the environment its running on.
 
 It will:
 
-* Show its environment variables.
-* Show its tokens, secrets, and configs (config maps).
-* Show its pod name and namespace.
-* Show the containers running inside its pod.
-* Show its memory limits.
-* Show its cgroups.
+* Show the request method, url, and headers.
+* Show the client and server address.
+* Show the container environment variables.
+* Show the container tokens, secrets, and configs (config maps).
+* Show the container pod name and namespace.
+* Show the containers running inside the container pod.
+* Show the container memory limits.
+* Show the container cgroups.
 * Expose as a Kubernetes `LoadBalancer` `Service`.
   * Note that this results in the creation of an [EC2 Classic Load Balancer (CLB)](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/introduction.html).
 * Use [Role and RoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
