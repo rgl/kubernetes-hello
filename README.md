@@ -25,11 +25,16 @@ It will:
 
 When running in Azure Kubernetes Service (AKS), it will also:
 
-* List the Azure DNS Zones using the [Azure Workload Identity authentication](https://azure.github.io/azure-workload-identity/docs/) (see the [rgl/terraform-azure-aks-example repository](https://github.com/rgl/terraform-azure-aks-example)).
+* List the DNS Zones hosted in [Azure DNS](https://azure.microsoft.com/en-us/products/dns) using the [Azure Workload Identity authentication](https://azure.github.io/azure-workload-identity/docs/) (see the [rgl/terraform-azure-aks-example repository](https://github.com/rgl/terraform-azure-aks-example)).
+
+When running in Amazon Elastic Kubernetes Service (EKS), it will also:
+
+* List the DNS Zones hosted in [AWS Route 53](https://aws.amazon.com/route53/) using the [EKS Pod Identities authentication](https://docs.aws.amazon.com/eks/latest/userguide/pod-identities.html) (see the [rgl/terramate-aws-eks-example repository](https://github.com/rgl/terramate-aws-eks-example)).
 
 This is used in:
 
 * [rgl/terraform-azure-aks-example](https://github.com/rgl/terraform-azure-aks-example)
+* [rgl/terramate-aws-eks-example](https://github.com/rgl/terramate-aws-eks-example)
 * [rgl/rancher-single-node-ubuntu-vagrant](https://github.com/rgl/rancher-single-node-ubuntu-vagrant)
 
 # Usage

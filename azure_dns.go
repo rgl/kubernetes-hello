@@ -11,7 +11,8 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/resourcemanager/dns/armdns"
 )
 
-func getAzureDNSZones() []nameValuePair {
+func getAzureDNSZones(ctx context.Context) []nameValuePair {
+	// bail when not running in azure.
 	subscriptionID := os.Getenv("AZURE_SUBSCRIPTION_ID")
 	if subscriptionID == "" {
 		return []nameValuePair{}
@@ -48,7 +49,7 @@ func getAzureDNSZones() []nameValuePair {
 	var zones nameValuePairs
 
 	for pager := client.NewListPager(nil); pager.More(); {
-		page, err := pager.NextPage(context.TODO())
+		page, err := pager.NextPage(ctx)
 		if err != nil {
 			return []nameValuePair{{"ERROR", fmt.Sprintf("%v", err)}}
 		}

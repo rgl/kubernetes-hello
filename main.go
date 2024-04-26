@@ -17,6 +17,7 @@ import (
 	"regexp"
 	"runtime"
 	"sort"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -40,9 +41,12 @@ func init() {
 	startTime = time.Now()
 }
 
-// see https://github.com/kubernetes/client-go/tree/v0.28.1/examples/in-cluster-client-configuration
-// see https://github.com/kubernetes/client-go/blob/v0.28.1/kubernetes/typed/core/v1/pod.go
+// see https://github.com/kubernetes/client-go/tree/v0.30.0/examples/in-cluster-client-configuration
+// see https://github.com/kubernetes/client-go/blob/v0.30.0/kubernetes/typed/core/v1/pod.go
 func getPodContainers() (string, error) {
+	if os.Getenv("KUBERNETES_SERVICE_HOST") == "" {
+		return "", nil
+	}
 	podNamespace := os.Getenv("POD_NAMESPACE")
 	podName := os.Getenv("POD_NAME")
 	config, err := rest.InClusterConfig()
@@ -265,6 +269,19 @@ table > tbody > tr:hover {
         </tbody>
     </table>
     {{- end}}
+    {{- if .AWSDNSZones}}
+    <table>
+        <caption>AWS DNS Zones</caption>
+        <tbody>
+            {{- range .AWSDNSZones}}
+            <tr>
+                <th>{{.Name}}</th>
+                <td>{{.Value}}</td>
+            </tr>
+            {{- end}}
+        </tbody>
+    </table>
+    {{- end}}
 </body>
 </html>
 `))
@@ -280,8 +297,8 @@ type indexData struct {
 	Gid            int
 	PodContainers  string
 	Cgroup         string
-	MemoryLimit    string
-	MemoryUsage    string
+	MemoryLimit    uint64
+	MemoryUsage    uint64
 	Request        string
 	RequestHeaders []nameValuePair
 	ClientAddress  string
@@ -295,6 +312,7 @@ type indexData struct {
 	Secrets        []nameValuePair
 	Configs        []nameValuePair
 	AzureDNSZones  []nameValuePair
+	AWSDNSZones    []nameValuePair
 }
 
 type nameValuePairs []nameValuePair
@@ -320,6 +338,83 @@ func headersToNameValuePairs(headers http.Header) nameValuePairs {
 	}
 	sort.Sort(nameValuePairs(pairs))
 	return pairs
+}
+
+type MemoryInfo struct {
+	Limit uint64
+	Usage uint64
+}
+
+func getMemoryInfo() (*MemoryInfo, error) {
+	// cgroup v1.
+	if _, err := os.Stat("/sys/fs/cgroup/memory/memory.limit_in_bytes"); err == nil {
+		limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
+		if err != nil {
+			return nil, err
+		}
+
+		usageBytes, err := os.ReadFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
+		if err != nil {
+			return nil, err
+		}
+
+		limit, err := strconv.ParseUint(string(bytes.TrimSpace(limitBytes)), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		usage, err := strconv.ParseUint(string(bytes.TrimSpace(usageBytes)), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		return &MemoryInfo{
+			Limit: limit,
+			Usage: usage,
+		}, nil
+	}
+
+	// cgroup v2.
+	if _, err := os.Stat("/sys/fs/cgroup/memory.max"); err == nil {
+		limitBytes, err := os.ReadFile("/sys/fs/cgroup/memory.max")
+		if err != nil {
+			return nil, err
+		}
+
+		usageBytes, err := os.ReadFile("/sys/fs/cgroup/memory.current")
+		if err != nil {
+			return nil, err
+		}
+
+		limit, err := strconv.ParseUint(string(bytes.TrimSpace(limitBytes)), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		usage, err := strconv.ParseUint(string(bytes.TrimSpace(usageBytes)), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		return &MemoryInfo{
+			Limit: limit,
+			Usage: usage,
+		}, nil
+	}
+
+	// get this process memory information.
+	var limit syscall.Rlimit
+	err := syscall.Getrlimit(syscall.RLIMIT_DATA, &limit)
+	if err != nil {
+		return nil, err
+	}
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+
+	return &MemoryInfo{
+		Limit: limit.Cur,
+		Usage: m.Sys,
+	}, nil
 }
 
 func main() {
@@ -377,30 +472,9 @@ func main() {
 			panic(err)
 		}
 
-		var memoryLimit []byte
-		var memoryUsage []byte
-
-		// cgroup v1.
-		if _, err := os.Stat("/sys/fs/cgroup/memory/memory.limit_in_bytes"); err == nil {
-			memoryLimit, err = os.ReadFile("/sys/fs/cgroup/memory/memory.limit_in_bytes")
-			if err != nil {
-				panic(err)
-			}
-
-			memoryUsage, err = os.ReadFile("/sys/fs/cgroup/memory/memory.usage_in_bytes")
-			if err != nil {
-				panic(err)
-			}
-		} else { // cgroup v2.
-			memoryLimit, err = os.ReadFile("/sys/fs/cgroup/memory.max")
-			if err != nil {
-				panic(err)
-			}
-
-			memoryUsage, err = os.ReadFile("/sys/fs/cgroup/memory.current")
-			if err != nil {
-				panic(err)
-			}
+		memoryInfo, err := getMemoryInfo()
+		if err != nil {
+			panic(err)
 		}
 
 		requestHeaders := headersToNameValuePairs(r.Header)
@@ -410,7 +484,8 @@ func main() {
 			panic(err)
 		}
 
-		azureDNSZones := getAzureDNSZones()
+		azureDNSZones := getAzureDNSZones(r.Context())
+		awsDNSZones := getAWSDNSZones(r.Context())
 
 		err = indexTemplate.ExecuteTemplate(w, "Index", indexData{
 			Pid:            os.Getpid(),
@@ -418,8 +493,8 @@ func main() {
 			Gid:            os.Getgid(),
 			PodContainers:  podContainers,
 			Cgroup:         string(cgroup),
-			MemoryLimit:    string(memoryLimit),
-			MemoryUsage:    string(memoryUsage),
+			MemoryLimit:    memoryInfo.Limit,
+			MemoryUsage:    memoryInfo.Usage,
 			Request:        fmt.Sprintf("%s %s%s", r.Method, r.Host, r.URL),
 			RequestHeaders: requestHeaders,
 			ClientAddress:  r.RemoteAddr,
@@ -433,6 +508,7 @@ func main() {
 			Secrets:        secrets,
 			Configs:        configs,
 			AzureDNSZones:  azureDNSZones,
+			AWSDNSZones:    awsDNSZones,
 		})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
