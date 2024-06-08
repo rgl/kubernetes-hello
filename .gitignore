@@ -1,3 +1,4 @@
+tmp/
 kubernetes-hello
 kubeconfig.yml
 index.html

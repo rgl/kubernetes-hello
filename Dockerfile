@@ -1,4 +1,5 @@
 # syntax=docker.io/docker/dockerfile:1.7
+
 FROM golang:1.22-bookworm as builder
 WORKDIR /app
 COPY go.* ./
