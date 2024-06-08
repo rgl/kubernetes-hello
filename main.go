@@ -204,6 +204,7 @@ table > tbody > tr:hover {
             <tr><th>Hostname</th><td>{{.Hostname}}</td></tr>
             <tr><th>Pod Containers</th><td>{{.PodContainers}}</td></tr>
             <tr><th>Cgroup</th><td>{{.Cgroup}}</td></tr>
+            <tr><th>Go Max CPUs</th><td>{{.GoMaxCPUs}}</td></tr>
             <tr><th>Memory Limit</th><td>{{.MemoryLimit}}</td></tr>
             <tr><th>Memory Usage</th><td>{{.MemoryUsage}}</td></tr>
             <tr><th>Os</th><td>{{.Os}}</td></tr>
@@ -297,6 +298,7 @@ type indexData struct {
 	Gid            int
 	PodContainers  string
 	Cgroup         string
+	GoMaxCPUs      int
 	MemoryLimit    uint64
 	MemoryUsage    uint64
 	Request        string
@@ -493,6 +495,7 @@ func main() {
 			Gid:            os.Getgid(),
 			PodContainers:  podContainers,
 			Cgroup:         string(cgroup),
+			GoMaxCPUs:      runtime.GOMAXPROCS(0),
 			MemoryLimit:    memoryInfo.Limit,
 			MemoryUsage:    memoryInfo.Usage,
 			Request:        fmt.Sprintf("%s %s%s", r.Method, r.Host, r.URL),

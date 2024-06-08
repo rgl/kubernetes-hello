@@ -162,6 +162,22 @@ spec:
               memory: 20Mi
               cpu: '0.1'
           env:
+            # configure the go runtime to honour the k8s memory and cpu
+            # resource limits.
+            # NB resourceFieldRef will cast the limits to bytes and integer
+            #    number of cpus (rounding up to the nearest integer).
+            # see https://pkg.go.dev/runtime
+            # see https://www.riverphillips.dev/blog/go-cfs/
+            # see https://github.com/golang/go/issues/33803
+            # see https://github.com/traefik/traefik-helm-chart/pull/1029
+            - name: GOMEMLIMIT
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.memory
+            - name: GOMAXPROCS
+              valueFrom:
+                resourceFieldRef:
+                  resource: limits.cpu
             # see https://github.com/kubernetes/kubernetes/blob/master/test/e2e/common/downward_api.go
             - name: POD_UID
               valueFrom:

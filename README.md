@@ -15,6 +15,7 @@ It will:
 * Show the containers running inside the container pod.
 * Show the container memory limits.
 * Show the container cgroups.
+* Configure [the Go runtime](https://pkg.go.dev/runtime) to honour the defined kubernetes container memory and cpu resource limits with the `GOMEMLIMIT` and `GOMAXPROCS` environment variables.
 * Expose as a Kubernetes `LoadBalancer` `Service`.
   * Note that this results in the creation of an [EC2 Classic Load Balancer (CLB)](https://docs.aws.amazon.com/elasticloadbalancing/latest/classic/introduction.html).
 * Use [Role and RoleBinding](https://kubernetes.io/docs/reference/access-authn-authz/rbac/).
