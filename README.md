@@ -40,12 +40,19 @@ This is used in:
 
 # Usage
 
-Install docker.
+Install docker, kind, and kubectl.
 
 Create the local test infrastructure:
 
 ```bash
 ./.github/workflows/kind/create.sh
+```
+
+Access the test infrastructure kind Kubernetes cluster:
+
+```bash
+export KUBECONFIG="$PWD/kubeconfig.yml"
+kubectl get nodes -o wide
 ```
 
 Build and test:
