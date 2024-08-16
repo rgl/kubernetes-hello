@@ -235,6 +235,7 @@ table > tbody > tr:hover {
             {{- end}}
         </tbody>
     </table>
+    {{- if .Secrets}}
     <table>
         <caption>Secrets</caption>
         <tbody>
@@ -246,6 +247,8 @@ table > tbody > tr:hover {
             {{- end}}
         </tbody>
     </table>
+    {{- end}}
+    {{- if .Configs}}
     <table>
         <caption>Configs</caption>
         <tbody>
@@ -257,6 +260,7 @@ table > tbody > tr:hover {
             {{- end}}
         </tbody>
     </table>
+    {{- end}}
     {{- if .AzureDNSZones}}
     <table>
         <caption>Azure DNS Zones</caption>
