@@ -1,5 +1,5 @@
 # see https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#serviceaccount-v1-core
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#serviceaccount-v1-core
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -8,7 +8,7 @@ imagePullSecrets:
   - name: pandora-rancher-test-5000
 ---
 # see https://kubernetes.io/docs/reference/access-authn-authz/rbac/
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#role-v1-rbac-authorization-k8s-io
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#role-v1-rbac-authorization-k8s-io
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
@@ -19,7 +19,7 @@ rules:
     verbs: ["get", "list"]
 ---
 # see https://kubernetes.io/docs/reference/access-authn-authz/rbac/
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#rolebinding-v1-rbac-authorization-k8s-io
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#rolebinding-v1-rbac-authorization-k8s-io
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
@@ -33,7 +33,7 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
 ---
 # see https://kubernetes.io/docs/concepts/services-networking/ingress/
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#ingress-v1-networking-k8s-io
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#ingress-v1-networking-k8s-io
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
@@ -59,7 +59,7 @@ spec:
                   name: http
 ---
 # see https://kubernetes.io/docs/concepts/services-networking/service/
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#service-v1-core
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#service-v1-core
 # see https://github.com/kubernetes-incubator/external-dns/blob/v0.5.16/docs/initial-design.md
 # see https://github.com/kubernetes-incubator/external-dns/blob/v0.5.16/docs/ttl.md
 apiVersion: v1
@@ -80,7 +80,7 @@ spec:
       targetPort: http
 ---
 # see https://kubernetes.io/docs/concepts/configuration/secret/
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#secret-v1-core
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#secret-v1-core
 apiVersion: v1
 kind: Secret
 type: Opaque
@@ -91,7 +91,7 @@ stringData:
   password: Open Sesame
 ---
 # see https://kubernetes.io/docs/tasks/configure-pod-container/configure-pod-configmap/
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#configmap-v1-core
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#configmap-v1-core
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -126,10 +126,10 @@ data:
 # see https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/
 # see https://kubernetes.io/docs/concepts/storage/projected-volumes/#serviceaccounttoken
 # see https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#daemonset-v1-apps
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#podtemplatespec-v1-core
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#container-v1-core
-# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.30/#serviceaccounttokenprojection-v1-core
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#daemonset-v1-apps
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#podtemplatespec-v1-core
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#container-v1-core
+# see https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.35/#serviceaccounttokenprojection-v1-core
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -148,9 +148,23 @@ spec:
       nodeSelector:
         kubernetes.io/arch: amd64
         kubernetes.io/os: linux
+      securityContext:
+        # NB this group id has to be the same as the container user group id(s)
+        #    securityContext, which is inferred by k8s from the USER Dockerfile
+        #    instruction.
+        fsGroup: 65534
       containers:
         - name: kubernetes-hello
           image: ruilopes/kubernetes-hello
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+                - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
           ports:
             - name: http
               containerPort: 8000
@@ -164,20 +178,26 @@ spec:
           env:
             # configure the go runtime to honour the k8s memory and cpu
             # resource limits.
+            # NB since go 1.19.0 this is now automatically handled by the go
+            #    runtime.
             # NB resourceFieldRef will cast the limits to bytes and integer
             #    number of cpus (rounding up to the nearest integer).
             # see https://pkg.go.dev/runtime
             # see https://www.riverphillips.dev/blog/go-cfs/
             # see https://github.com/golang/go/issues/33803
             # see https://github.com/traefik/traefik-helm-chart/pull/1029
-            - name: GOMEMLIMIT
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.memory
-            - name: GOMAXPROCS
-              valueFrom:
-                resourceFieldRef:
-                  resource: limits.cpu
+            # - name: GOMEMLIMIT
+            #   valueFrom:
+            #     resourceFieldRef:
+            #       resource: limits.memory
+            # NB since go 1.25.0 this is now automatically handled by the go
+            #    runtime. thou, when the limit is < 2, it uses 2.
+            #    see https://go.dev/doc/go1.25#container-aware-gomaxprocs
+            #    see https://github.com/golang/go/blob/go1.25.6/src/runtime/cgroup_linux.go#L11-L26
+            # - name: GOMAXPROCS
+            #   valueFrom:
+            #     resourceFieldRef:
+            #       resource: limits.cpu
             # see https://github.com/kubernetes/kubernetes/blob/master/test/e2e/common/downward_api.go
             - name: POD_UID
               valueFrom:
@@ -222,8 +242,8 @@ spec:
         - name: secrets
           secret:
             secretName: kubernetes-hello-secrets
-            defaultMode: 0400
+            defaultMode: 0440
         - name: configs
           configMap:
             name: kubernetes-hello-configs
-            defaultMode: 0400
+            defaultMode: 0440

@@ -1,0 +1,32 @@
+version: 0.1
+log:
+  level: info
+  formatter: text
+  fields:
+    service: registry
+storage:
+  delete:
+    enabled: true
+  cache:
+    blobdescriptor: inmemory
+  filesystem:
+    rootdirectory: /var/lib/registry
+http:
+  addr: :5001
+  secret: my-http-secret
+  headers:
+    X-Content-Type-Options: [nosniff]
+  http2:
+    disabled: false
+  h2c:
+    enabled: false
+health:
+  storagedriver:
+    enabled: true
+    interval: 10s
+    threshold: 3
+validation:
+  manifests:
+    urls:
+      allow:
+        - .+

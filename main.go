@@ -41,6 +41,21 @@ func init() {
 	startTime = time.Now()
 }
 
+func getOsGroups() string {
+	groups, err := os.Getgroups()
+	if err != nil {
+		return "n/a"
+	}
+	var sb strings.Builder
+	for i, g := range groups {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(strconv.Itoa(g))
+	}
+	return sb.String()
+}
+
 // see https://github.com/kubernetes/client-go/tree/v0.30.0/examples/in-cluster-client-configuration
 // see https://github.com/kubernetes/client-go/blob/v0.30.0/kubernetes/typed/core/v1/pod.go
 func getPodContainers() (string, error) {
@@ -202,6 +217,7 @@ table > tbody > tr:hover {
             <tr><th>Pid</th><td>{{.Pid}}</td></tr>
             <tr><th>Uid</th><td>{{.Uid}}</td></tr>
             <tr><th>Gid</th><td>{{.Gid}}</td></tr>
+            <tr><th>Groups</th><td>{{.Groups}}</td></tr>
             <tr><th>Request</th><td>{{.Request}}</td></tr>
             <tr><th>Client Address</th><td>{{.ClientAddress}}</td></tr>
             <tr><th>Server Address</th><td>{{.ServerAddress}}</td></tr>
@@ -304,6 +320,7 @@ type indexData struct {
 	Pid            int
 	Uid            int
 	Gid            int
+	Groups         string
 	PodContainers  string
 	Cgroup         string
 	GoMaxCPUs      int
@@ -501,6 +518,7 @@ func main() {
 			Pid:            os.Getpid(),
 			Uid:            os.Getuid(),
 			Gid:            os.Getgid(),
+			Groups:         getOsGroups(),
 			PodContainers:  podContainers,
 			Cgroup:         string(cgroup),
 			GoMaxCPUs:      runtime.GOMAXPROCS(0),

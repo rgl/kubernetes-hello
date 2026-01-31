@@ -1,0 +1,2 @@
+[host.'http://kubernetes-hello-registry:5001']
+capabilities = ['pull', 'resolve']
